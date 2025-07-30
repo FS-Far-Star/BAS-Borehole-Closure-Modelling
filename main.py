@@ -84,6 +84,7 @@ densityexxsold60 = 793  # kg/m^3 # TODO: vary at depths with temperature
 p_ice = calculateicepressure(z,rho,g)
 p_fluid = calculatefluidpressure(z[z>=0], fluidlevel, densityexxsold60, g)
 p_total = p_ice[z>=0] - p_fluid # +ve pressure closes borehole
+print('p_t',p_total)
 
 # Borehole
 D0_s = 143    # initial diameter shallow drilling (mm)
