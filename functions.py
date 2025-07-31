@@ -1,8 +1,16 @@
-from init import *
+from global_settings import *
 
 import numpy as np
 import scipy.integrate
 import warnings
+
+def drill_diameter(drill_type):
+    if drill_type == 'shallow':
+        return 100  # shallow bore diameter in mm
+    elif drill_type == 'deep':
+        return 120  # deep bore diameter in mm
+    else:
+        raise ValueError("Unknown drill type: {}".format(drill_type))
 
 def TSS(h, acc, melt, eta, rho, rhoi, Ts, QG):
     """
@@ -55,33 +63,37 @@ def TSS(h, acc, melt, eta, rho, rhoi, Ts, QG):
     warnings.warn("TSS did not converge after {} iterations".format(numiter), UserWarning)
     return Tss0
 
-
-def delta_d_bore(D0, ke, T, p, t):
+def delta_d_bore(D0, ke, T, p, dt):
     """Calculates change in borehole diameter in time t (days) for range of depths, z (m) given
         initialdiameter, D0 (mm)
         enhancement coefficient, ke
         ice temperatures at z, T (C)
         overburden pressure at depth at z, p (Pa)
-
-        Using Talalay, deltaD = D0(1-exp[(6*10^-21)*ke*(e^(0.12T))*(p^3)*t])
-
-        N.B. When D0, T, p are given as arrays, each value must be at the same depths as z as the desired output
+        shrinkage time, t (seconds)
         """
-    delta = np.zeros_like(D0)
-
+    delta = D0 * 0  # initialize output array
+    t = dt / (24 * 3600)  # convert seconds to days
     for i in range(len(D0)):
         if D0[i] > 0:
-            eq = ke * math.exp(0.12 * T[i]) * t * (p[i] ** 3) * 6e-21
-            d = D0[i] * (1 - math.exp(eq))
+            # Using Talalay, deltaD = D0(1-exp[(6*10^-21)*ke*(e^(0.12T))*(p^3)*t]), where t is in days
+            eq = ke * np.exp(0.12 * T[i]) * t * (p[i] ** 3) * 6e-21
+            d = D0[i] * (1 - np.exp(eq))
 
             # Clamp to physical limit
             delta[i] = max(d, -D0[i])
+
+            # enable this to prevent borehole from expanding, debugging only
+            # if delta[i] > 0:
+            #     delta[i] = 0
+        elif D0[i] <0:
+            warnings.warn(f"Negative bore diameter at index {i}: {D0[i]} mm. Setting to 0.", UserWarning)
+            delta[i] = 0
         else:
             delta[i] = 0  # no borehole → no change
 
-    return delta
+    return delta #output is in mm
 
-def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drill_diameter, drilling, fluid_density=993, g=9.81):
+def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_density, g):
     """
     Calculate hydrostatic fluid pressure profile in a borehole.
     
@@ -89,8 +101,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drill_diameter, d
         h (np.ndarray): 1D array of vertical depth grid points [m], increasing positively downward
         fluid_volume (float): Total fluid volume in borehole [m³]
         bore_depth (float): Current depth of borehole [m]
-        bore_diameter (np.ndarray): Borehole diameter at each depth in h [m]
-        drill_diameter (float): Diameter at current drill tip [m]
+        bore_diameter (np.ndarray): Borehole diameter at each depth in h [mm]
         fluid_density (float): Density of borehole fluid [kg/m³]
         g (float): Gravitational acceleration [m/s²]
     
@@ -103,14 +114,15 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drill_diameter, d
 
     # Find bottom index i such that h[i] < bore_depth <= h[i+1]
     bore_index = np.searchsorted(h, bore_depth, side='right') - 1
+    new_fluid_volume = fluid_volume
+    fluid_height = bore_depth
 
     if bore_index < 0:
-        return p_fluid  # borehole hasn't reached first grid point yet
+        return p_fluid, new_fluid_volume, fluid_height  # borehole hasn't reached first grid point yet
 
     # Volume of partial cell between h[i] and bore_depth
     dz_partial = bore_depth - h[bore_index]
-    D_partial = 0.5 * (bore_diameter[bore_index] + drill_diameter)
-    V_partial = (np.pi / 4) * D_partial**2 * dz_partial
+    V_partial = (np.pi / 4) * bore_diameter[bore_index]**2 * dz_partial * 1e-6   # mm^2 -> m^2
 
     # Remaining fluid volume to distribute upward
     remaining_volume = fluid_volume - V_partial
@@ -124,13 +136,13 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drill_diameter, d
     dz_fill = 0
 
     for i in range(bore_index - 1, -1, -1):
-        dv = (np.pi / 4) * bore_diameter[i]**2 * dh
+        dv = (np.pi / 4) * bore_diameter[i]**2 * dh * 1e-6   # mm^2 -> m^2
         if remaining_volume >= dv:
             remaining_volume -= dv
         else:
             fluid_top_index = i
             if fluid_top_index > 1:
-                dz_fill = remaining_volume / ((np.pi / 4) * ((bore_diameter[i]+bore_diameter[i-1])/2)**2)
+                dz_fill = remaining_volume / (((np.pi / 4) * ((bore_diameter[i]+bore_diameter[i-1])/2)**2) * 1e-6)  # mm^2 -> m^2
             else:
                 dz_fill = 0
                 print("Warning: Fluid volume exceeds borehole capacity")
@@ -143,35 +155,38 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drill_diameter, d
     if fluid_height > 90 and drilling:
         refill_level = 80
         refill_index = np.searchsorted(h, refill_level, side='left')  # h[refill_index] >= 80
-        print('Refill')
 
         # Top partial cell (from 80 m to next grid point)
         if h[refill_index] > refill_level and refill_index > 0:
             dz_top_partial = h[refill_index] - refill_level
-            V_top_partial = (np.pi / 4) * ((bore_diameter[refill_index] + bore_diameter[refill_index - 1])/2)**2 * dz_top_partial
+            V_top_partial = ((np.pi / 4) * ((bore_diameter[refill_index] + bore_diameter[refill_index - 1])/2)**2 * 1e-6) * dz_top_partial
         else:
             V_top_partial = 0
 
         # Fully filled cells from refill_index down to i
         V_full = 0
         for i in range(refill_index, bore_index):
-            dv = (np.pi / 4) * bore_diameter[i]**2 * dh
+            dv = ((np.pi / 4) * bore_diameter[i]**2 * 1e-6)* dh
             V_full += dv
 
         # Total fluid volume including partial at bottom
-        fluid_volume = V_partial + V_full + V_top_partial
+        print('Refill qty',V_partial + V_full + V_top_partial - fluid_volume)
+        new_fluid_volume = V_partial + V_full + V_top_partial
 
         # Reset fluid height to refill level
         fluid_height = refill_level
     else:
-        pass    # no refill
+        new_fluid_volume = fluid_volume    # no refill
 
     # Compute hydrostatic pressure from fluid_height down to bore_depth
-    for i in range(fluid_top_index, bore_index + 1):
+    for i in range(0,len(h)):
         if h[i] >= fluid_height:
-            p_fluid[i] = fluid_density * g * (h[i] - fluid_height)  # will be negative unless corrected
-
-    return p_fluid,fluid_volume
+            p_fluid[i] = fluid_density * g * (h[i] - fluid_height)  # will be positive
+            if p_fluid[i] < 0:
+                p_fluid[i] = 0
+    if np.isclose(new_fluid_volume, 0):
+        fluid_height = bore_depth  # no fluid in borehole
+    return p_fluid, new_fluid_volume, fluid_height
 
 def ice_pressure(h, rho, g=9.81):
     """
@@ -187,7 +202,6 @@ def ice_pressure(h, rho, g=9.81):
     """
     p = scipy.integrate.cumulative_trapezoid(rho * g, h, initial=0)
     return p
-
 
 def shape_function(h, p_exp, H, rhoi, rho):
     """
@@ -228,7 +242,55 @@ def density(h, rhoi, rhos, H, Lrho):
     Returns:
         rho   : array-like, density profile [kg/m³]
     """
-    return rhoi + (rhos - rhoi) * np.exp(-(H - h) / Lrho)   
+    return rhos + (rhoi - rhos) * (1 - np.exp(-h / Lrho))
+
+def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
+    """
+    Compute the volume of fluid between fluid_height and bore_depth,
+    including accurate treatment of top and bottom partial cells.
+
+    Parameters:
+        bore_depth (float): Bottom of fluid column [m]
+        bore_diameter (np.ndarray): Diameter profile along h [m]
+        fluid_height (float): Top of fluid column [m]
+        h (np.ndarray): Depth grid [m], increasing downward
+
+    Returns:
+        float: Total fluid volume [m³]
+    """
+    volume = 0.0
+
+    # Ensure correct range
+    if fluid_height >= bore_depth:
+        return 0.0
+
+    # Index of top partial cell (just below fluid_height)
+    top_index = np.searchsorted(h, fluid_height, side='right') - 1
+
+    # Index of bottom partial cell (just above bore_depth)
+    bottom_index = np.searchsorted(h, bore_depth, side='left')
+
+    # --- Top partial cell ---
+    if 0 <= top_index < len(h) - 1:
+        dz_top = h[top_index + 1] - fluid_height
+        D_top = 0.5 * (bore_diameter[top_index] + bore_diameter[top_index + 1]) * 1e-6  # mm to m
+        V_top = (np.pi / 4) * D_top**2 * dz_top
+        volume += V_top
+
+    # --- Full cells between top+1 and bottom-1 ---
+    for i in range(top_index + 1, bottom_index):
+        D_full = 0.5 * (bore_diameter[i] + bore_diameter[i + 1]) * 1e-6  # mm to m
+        V_full = (np.pi / 4) * D_full**2 * dh
+        volume += V_full
+
+    # --- Bottom partial cell ---
+    if 0 <= bottom_index < len(h) - 1:
+        dz_bottom = bore_depth - h[bottom_index]
+        D_bottom = 0.5 * (bore_diameter[bottom_index] + bore_diameter[bottom_index + 1]) * 1e-6 # mm to m
+        V_bottom = (np.pi / 4) * D_bottom**2 * dz_bottom
+        volume += V_bottom
+
+    return volume
 
 def check_status(time):
     # Placeholder for drilling strategy
