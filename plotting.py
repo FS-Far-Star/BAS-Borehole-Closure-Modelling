@@ -4,21 +4,20 @@ from global_settings import *
 
 def plot_graphs():
     # --- Load data
-    depth = pd.read_csv("data/depth.csv")["depth"].values
-    bore_diameter = pd.read_csv("data/bore_diameter.csv").values
-    delta_bore = pd.read_csv("data/delta_bore.csv").values
-    temp = pd.read_csv("data/temperature.csv").values
-    p_t = pd.read_csv("data/p_t.csv").values
-    p_fluid = pd.read_csv("data/p_fluid.csv").values
-    p_ice = pd.read_csv("data/p_ice.csv").values
-    rho = pd.read_csv("data/rho.csv").values
+    depth           = pd.read_csv("data/depth.csv")["depth"].values
+    bore_diameter   = pd.read_csv("data/bore_diameter.csv").values
+    delta_bore      = pd.read_csv("data/delta_bore.csv").values
+    temp            = pd.read_csv("data/temperature.csv").values
+    p_t             = pd.read_csv("data/p_t.csv").values
+    p_fluid         = pd.read_csv("data/p_fluid.csv").values
+    p_ice           = pd.read_csv("data/p_ice.csv").values
+    rho             = pd.read_csv("data/rho.csv").values
 
-    timeseries = pd.read_csv("data/timeseries.csv")
-
-    t = timeseries["time"]
-    fluid_volume = timeseries["fluid_volume"]
-    fluid_height = timeseries["fluid_height"]
-    bore_depth = timeseries["bore_depth"]
+    timeseries      = pd.read_csv("data/timeseries.csv")
+    t               = timeseries["time"]
+    fluid_volume    = timeseries["fluid_volume"]
+    fluid_height    = timeseries["fluid_height"]
+    bore_depth      = timeseries["bore_depth"]
 
     # --- Plot borehole profiles every X timesteps
     if plot_bore_profile_over_time:
@@ -107,13 +106,13 @@ def plot_graphs():
         lines1, labels1 = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         lines3, labels3 = ax3.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2 + lines3, labels1 + labels2 + labels3, loc='bottom right')
+        ax1.legend(lines1 + lines2 + lines3, labels1 + labels2 + labels3, loc='lower right')
 
         plt.title('Borehole Status Over Time')
         plt.grid(True)
         plt.tight_layout()
 
-    # plot temperature and density profile
+    # --- Plot temperature and density profile
     if plot_temperature_density_profile:
         fig2, ax1 = plt.subplots()
         ax1.plot(temp, depth, color='tab:red', label='Temperature')
@@ -130,18 +129,20 @@ def plot_graphs():
         ax2.tick_params(axis='x', labelcolor='tab:blue')
         plt.tight_layout()
 
-    # plot pressure profiles
+    # --- Plot pressure profiles
     if plot_pressure_profile_over_time:
         plt.figure()
-        for i in range(0, p_t.shape[1], plot_spacing):
-            plt.plot(p_t[:int(bore_depth[i]//dh), i], depth[:int(bore_depth[i]//dh)])
-            plt.plot(p_fluid[:int(bore_depth[i]//dh), i], depth[:int(bore_depth[i]//dh)])
-        plt.plot(p_ice, depth,'--', label='p_ice', color='black')
+        for i in range(1, p_t.shape[1], plot_spacing):  # pressure is not calculated for 0th time step
+            plt.plot(p_t[:int(bore_depth[i]//dh), i]/1e6, depth[:int(bore_depth[i]//dh)])
+            plt.plot(p_fluid[:int(bore_depth[i]//dh), i]/1e6, depth[:int(bore_depth[i]//dh)])
+        plt.plot(p_ice/1e6, depth,'--', label='p_ice', color='black')
 
         plt.legend()
         plt.title("Pressure Profiles Over Time")
         plt.grid(True)
         plt.tight_layout()
+        plt.xlabel('Pressure [MPa]')
+        plt.ylabel('Depth [m]')
         plt.gca().invert_yaxis()
 
         # show all plots

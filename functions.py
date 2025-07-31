@@ -1,5 +1,4 @@
 from global_settings import *
-
 import numpy as np
 import scipy.integrate
 import warnings
@@ -176,7 +175,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
         # Reset fluid height to refill level
         fluid_height = refill_level
     else:
-        new_fluid_volume = fluid_volume    # no refill
+        new_fluid_volume = fluid_volume   # no refill, this CANNOT handle overflow yet TODO
 
     # Compute hydrostatic pressure from fluid_height down to bore_depth
     for i in range(0,len(h)):
@@ -188,7 +187,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
         fluid_height = bore_depth  # no fluid in borehole
     return p_fluid, new_fluid_volume, fluid_height
 
-def ice_pressure(h, rho, g=9.81):
+def ice_pressure(h, rho, g):
     """
     Calculates the overburden pressure in ice from surface to depth.
 
@@ -273,20 +272,20 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
     # --- Top partial cell ---
     if 0 <= top_index < len(h) - 1:
         dz_top = h[top_index + 1] - fluid_height
-        D_top = 0.5 * (bore_diameter[top_index] + bore_diameter[top_index + 1]) * 1e-6  # mm to m
+        D_top = 0.5 * (bore_diameter[top_index] + bore_diameter[top_index + 1]) * 1e-3  # mm to m
         V_top = (np.pi / 4) * D_top**2 * dz_top
         volume += V_top
 
     # --- Full cells between top+1 and bottom-1 ---
     for i in range(top_index + 1, bottom_index):
-        D_full = 0.5 * (bore_diameter[i] + bore_diameter[i + 1]) * 1e-6  # mm to m
+        D_full = 0.5 * (bore_diameter[i] + bore_diameter[i + 1]) * 1e-3  # mm to m
         V_full = (np.pi / 4) * D_full**2 * dh
         volume += V_full
 
     # --- Bottom partial cell ---
     if 0 <= bottom_index < len(h) - 1:
         dz_bottom = bore_depth - h[bottom_index]
-        D_bottom = 0.5 * (bore_diameter[bottom_index] + bore_diameter[bottom_index + 1]) * 1e-6 # mm to m
+        D_bottom = 0.5 * (bore_diameter[bottom_index] + bore_diameter[bottom_index + 1]) * 1e-3 # mm to m
         V_bottom = (np.pi / 4) * D_bottom**2 * dz_bottom
         volume += V_bottom
 
@@ -294,5 +293,8 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
 
 def check_status(time):
     # Placeholder for drilling strategy
-    drilling, drill_type = True, 'shallow'
+    if time < max_time/2:
+        drilling, drill_type = True, 'shallow'
+    else:
+        drilling, drill_type = False, 'shallow'
     return [drilling, drill_type]
