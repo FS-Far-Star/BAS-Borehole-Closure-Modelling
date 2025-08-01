@@ -2,11 +2,16 @@ from global_settings import *
 from functions import *
 
 def run_calculation():
+    global dt,drilling_speed
+    if loading == True:
+        dt = 24*60*60                                           # time step set to 1 day to match spreadsheet
+
     # Initialize 
     t = np.arange(0 , max_time + dt , dt)
-    h = np.arange(0 , max_depth + dh , dh)
+    h = np.arange(0 , H + dh , dh)
     
     if loading == False:
+        # --- initialize arrays ---
         bore_depth     = np.zeros(len(t))                       # borehole depth over time
         bore_diameter  = np.zeros((len(h), len(t)))             # bore diameter as a function of depth and time
         temp           = np.zeros((len(h), len(t)))             # temperature as a function of depth and time
@@ -14,7 +19,16 @@ def run_calculation():
         fluid_volume   = np.zeros(len(t))                       # fluid volume over time
 
     elif loading == True:
-        bore_depth     = np.ones(len(t)) * current_bore_depth   # borehole depth over time
+        # --- Load data, skip first 2 rows ---
+        df = pd.read_excel(filename, sheet_name=sheet_name, skiprows=2)
+        df = df[df.iloc[:, 2].notna()]
+        last_valid_index = df[df.iloc[:, 2] == 'Camp Closed'].last_valid_index()
+        df = df.loc[:last_valid_index]
+        working_status = df.iloc[:, 2].to_numpy()               # Can also use column E instead if 'Drilling' is to be changed to other stuff
+        EOD_depth = np.nan_to_num(df.iloc[:, 8].to_numpy(), nan=0.0)
+        # --- initialize arrays ---
+        bore_depth     = np.zeros(len(t))
+        bore_depth[0:len(EOD_depth)] = EOD_depth                # borehole depth over time
         bore_diameter  = np.zeros((len(h), len(t)))             
         bore_diameter[0:len(current_bore_diameter),0] = current_bore_diameter  # load data
         temp           = np.zeros((len(h), len(t)))             # temperature as a function of depth and time
@@ -28,7 +42,7 @@ def run_calculation():
     p_t        = np.zeros((len(h), len(t)))                     # total pressure
 
     # Ice properties
-    rho  = density(h, rhoi, rhos, H, Lrho)
+    rho  = density(h, rhoi, rhos, Lrho)
     eta  = shape_function(h, p_exp, H, rhoi, rho)
     p_ice = ice_pressure(h, rho, g)                             # hydrostatic pressure profile of ice is constant over time
     temp  = TSS(h, acc, melt, eta, rho, rhoi, Ts, QG)           # ignoring drilling fluid contribution and transient
@@ -39,15 +53,29 @@ def run_calculation():
 
         # update bore status with drilling status
         bore_diameter[:, i] = bore_diameter[:, i-1]             # copy previous bore diameter
-        drilling, drill_type = check_status(t[i])
+        if loading == True:
+            if i < len(working_status) and working_status[i] == 'Drilling':
+                drilling = True
+            else:
+                drilling = False
+        elif loading == False:
+            drilling = True     # unless loading data, assume drilling is always True
+
         last_depth      = int(bore_depth[i-1] // dh)
-        if drilling == True:
-            bore_depth[i]   = bore_depth[i-1] + drilling_speed * dt
-            if bore_depth[i] > max_depth:
-                bore_depth[i] = max_depth                       # max depth reached
-        else:
-            bore_depth[i]   = bore_depth[i-1]
-        
+
+        if loading == False:
+            if drilling == True:
+                bore_depth[i]   = bore_depth[i-1] + drilling_speed * dt
+                if bore_depth[i] > H:
+                    bore_depth[i] = H                       # max depth reached
+            else:
+                bore_depth[i]   = bore_depth[i-1]
+        elif loading == True:
+            if drilling == True:
+                pass
+            elif drilling == False:
+                bore_depth[i] = bore_depth[i-1]            # keep the same depth if not drilling
+
         print(f"bore depth {bore_depth[i]:.2f}m")
         print('')
 

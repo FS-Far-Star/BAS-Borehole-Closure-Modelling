@@ -151,8 +151,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
     fluid_height = h[fluid_top_index] - dz_fill
 
     # Refill condition: fluid dropped too deep during drilling
-    if fluid_height > 90 and drilling:
-        refill_level = 80
+    if fluid_height > refill_limit and drilling:
         refill_index = np.searchsorted(h, refill_level, side='left')  # h[refill_index] >= 80
 
         # Top partial cell (from 80 m to next grid point)
@@ -171,11 +170,32 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
         # Total fluid volume including partial at bottom
         print('Refill qty',V_partial + V_full + V_top_partial - fluid_volume)
         new_fluid_volume = V_partial + V_full + V_top_partial
+        fluid_height = refill_level # set fluid height to refill level
 
-        # Reset fluid height to refill level
-        fluid_height = refill_level
+    # leak condition: fluid too high at any point
+    elif fluid_height < leak_threshold:
+        leak_index = np.searchsorted(h, leak_threshold, side='right')  # h[leak_index] > 40
+
+        # --- Top partial cell: from 40 to h[leak_index] ---
+        if leak_index < len(h):
+            dz_top_partial = h[leak_index] - leak_threshold
+            D_top = 0.5 * (bore_diameter[leak_index] + bore_diameter[leak_index - 1]) * 0.001  # mm to m
+            V_top_partial = (np.pi / 4) * D_top**2 * dz_top_partial
+        else:
+            V_top_partial = 0
+
+        # Fully filled cells from refill_index down to i
+        V_full = 0
+        for i in range(leak_index, bore_index):
+            dv = ((np.pi / 4) * bore_diameter[i]**2 * 1e-6)* dh
+            V_full += dv
+
+        # Total leaked fluid volume
+        new_fluid_volume = V_top_partial + V_full + V_partial
+        fluid_height = leak_threshold  # set fluid height to leak threshold
+
     else:
-        new_fluid_volume = fluid_volume   # no refill, this CANNOT handle overflow yet TODO
+        new_fluid_volume = fluid_volume   # no refill, no leak
 
     # Compute hydrostatic pressure from fluid_height down to bore_depth
     for i in range(0,len(h)):
@@ -227,7 +247,7 @@ def shape_function(h, p_exp, H, rhoi, rho):
 
     return eta
 
-def density(h, rhoi, rhos, H, Lrho):
+def density(h, rhoi, rhos, Lrho):
     """
     Returns vertical density profile using an exponential fit.
 
@@ -244,6 +264,7 @@ def density(h, rhoi, rhos, H, Lrho):
     return rhos + (rhoi - rhos) * (1 - np.exp(-h / Lrho))
 
 def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
+    # This function has not
     """
     Compute the volume of fluid between fluid_height and bore_depth,
     including accurate treatment of top and bottom partial cells.
@@ -277,7 +298,7 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
         volume += V_top
 
     # --- Full cells between top+1 and bottom-1 ---
-    for i in range(top_index + 1, bottom_index):
+    for i in range(top_index + 1, bottom_index - 1):
         D_full = 0.5 * (bore_diameter[i] + bore_diameter[i + 1]) * 1e-3  # mm to m
         V_full = (np.pi / 4) * D_full**2 * dh
         volume += V_full
@@ -285,7 +306,7 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
     # --- Bottom partial cell ---
     if 0 <= bottom_index < len(h) - 1:
         dz_bottom = bore_depth - h[bottom_index]
-        D_bottom = 0.5 * (bore_diameter[bottom_index] + bore_diameter[bottom_index + 1]) * 1e-3 # mm to m
+        D_bottom = bore_diameter[bottom_index] * 1e-3 # mm to m
         V_bottom = (np.pi / 4) * D_bottom**2 * dz_bottom
         volume += V_bottom
 
@@ -293,7 +314,7 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
 
 def check_status(time):
     # Placeholder for drilling strategy
-    if time < max_time/2:
+    if time < max_time/4:
         drilling, drill_type = True, 'shallow'
     else:
         drilling, drill_type = False, 'shallow'

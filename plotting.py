@@ -28,12 +28,12 @@ def plot_graphs():
         for i in range(0, bore_diameter.shape[1], plot_spacing):
             nonzero_indices = np.nonzero(bore_diameter[:, i])[0]
             if len(nonzero_indices) > 0:
-                last_index = nonzero_indices[-1]
+                last_index = int(bore_depth[i]//dh) -1
                 plt.plot(bore_diameter[:, i][:last_index+1]/2, depth[:last_index+1], '.')
                 plt.plot(-bore_diameter[:, i][:last_index+1]/2, depth[:last_index+1], '.')
         nonzero_indices = np.nonzero(bore_diameter[:, -1])[0]
         if len(nonzero_indices) > 0:
-                last_index = nonzero_indices[-1]
+                last_index = int(bore_depth[i]//dh) -1
                 plt.plot(bore_diameter[:, -1][:last_index+1]/2, depth[:last_index+1], color='red', linewidth=2)
                 plt.plot(-bore_diameter[:, -1][:last_index+1]/2, depth[:last_index+1], color='red', linewidth=2)
 
@@ -67,7 +67,7 @@ def plot_graphs():
         for i in range(0, delta_bore.shape[1], plot_spacing):
             nonzero_indices = np.nonzero(delta_bore[:, i])[0]
             if len(nonzero_indices) > 0:
-                last_index = nonzero_indices[-1]
+                last_index = int(bore_depth[i]//dh) -1
                 plt.plot(delta_bore[:, i][:last_index+1], depth[:last_index+1], '.')
 
         plt.title("Borehole Closure Rate Over Time")
@@ -91,6 +91,7 @@ def plot_graphs():
         ax2.set_ylabel('Fluid Height [m]', color=color2)
         ax2.plot(t, fluid_height, color=color2, linestyle='--', label='Fluid Height')
         ax2.tick_params(axis='y', labelcolor=color2)
+        ax2.invert_yaxis()
 
         # Bore Depth
         ax3 = ax1.twinx()
@@ -101,6 +102,7 @@ def plot_graphs():
         ax3.set_ylabel('Bore Depth [m]', color=color3)
         ax3.plot(t, bore_depth, color=color3, linestyle='-.', label='Bore Depth')
         ax3.tick_params(axis='y', labelcolor=color3)
+        ax3.invert_yaxis()
 
         # Combined legend
         lines1, labels1 = ax1.get_legend_handles_labels()

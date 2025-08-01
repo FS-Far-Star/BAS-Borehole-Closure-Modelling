@@ -6,5 +6,5 @@ import os
 # Clear the console
 os.system('cls' if os.name == 'nt' else 'clear')
 
-run_calculation()
+# run_calculation()
 plot_graphs()
