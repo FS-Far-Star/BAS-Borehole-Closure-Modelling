@@ -24,9 +24,9 @@ dh = 1                              # depth step in meters
 
 # Load existing data?
 loading = True                     # Set to True if loading existing data
-current_bore_diameter = np.ones(int(H//dh))*100                         # example: 100 mm bore diameter all along
+current_bore_diameter = np.ones(int(H//dh))*100                                 # example: 100 mm bore diameter all along
 # current_bore_diameter = pd.read_csv("data/bore_diameter.csv").values[:,-1]    # load from csv, dh step size must match, must be 1D
-current_fluid_height = 0                                               # enter current fluid height, fluid_volume will be calculated
+current_fluid_height = 0                                                        # enter current fluid height, fluid_volume will be calculated
 filename = "Detailed Scenario Planning.xlsx"            # <-- file name here
 sheet_name = "04-07-25-Scen3-Good,24-16hr"              # <-- sheet name here
 
