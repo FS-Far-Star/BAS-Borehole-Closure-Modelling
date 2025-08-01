@@ -48,9 +48,12 @@ drilling_speed = 0.0002                         # meters per second. This is not
 
 # === Plotting settings ===
 plot_spacing = 20                               # plot bore profile/closure rate every X timesteps
-plot_bore_profile_over_time = True                
+
+merged_plot = True                              # Merges the three following plots into one figure
+plot_bore_profile_over_time = False   
+plot_borehole_closure_rate_over_time = False  
+plot_pressure_profile_over_time = False
+
 plot_mim_bore_diameter_over_time = True
-plot_borehole_closure_rate_over_time = True        
 plot_bore_status_over_time = True
 plot_temperature_density_profile = False
-plot_pressure_profile_over_time = True
