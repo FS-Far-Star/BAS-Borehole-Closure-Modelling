@@ -26,6 +26,7 @@ dh = 1                              # depth step in meters
 loading = True                     # Set to True if loading existing data
 current_bore_diameter = np.ones(int(H//dh))*100                                 # example: 100 mm bore diameter all along
 # current_bore_diameter = pd.read_csv("data/bore_diameter.csv").values[:,-1]    # load from csv, dh step size must match, must be 1D
+current_bore_depth = 0                                                          # enter current bore depth. DOES NOT need to match dh
 current_fluid_height = 0                                                        # enter current fluid height, fluid_volume will be calculated
 filename = "Detailed Scenario Planning.xlsx"            # <-- file name here
 sheet_name = "04-07-25-Scen3-Good,24-16hr"              # <-- sheet name here
@@ -40,11 +41,29 @@ ke = 1                             # enhancement coefficient for borehole closur
 fluid_density = 793                # density of drilling fluid (kg/m³)
 
 # === Drilling parameters ===
-refill_limit = 90
-refill_level = 80
-leak_threshold = 40
-drill_type = 'shallow'
-drilling_speed = 0.0002                         # meters per second. This is not active if loading data.
+refill_limit = 90                  # The fluid depth at which the crew will refill
+refill_level = 80                  # The fluid depth the crew will refill to
+leak_threshold = 40                # The fluid depth fluid will be lost to ice porosity 
+drill_type = 'shallow'             # Specify drill type: 'shallow' or 'deep'
+drilling_speed = 0.0002            # meters per second. IGNORE if using the spreadsheet
+
+# wrapper for drill specifications
+def drill_diameter(drill_type):
+    if drill_type == 'shallow':
+        return 143  # shallow bore diameter in mm
+    elif drill_type == 'deep':
+        return 129.6  # deep bore diameter in mm
+    # add more elif to expand drill inventory
+    else:
+        raise ValueError("Unknown drill type: {}".format(drill_type))
+    
+def check_status(time,max_time):
+    """Placeholder for drilling strategy"""
+    if time < max_time/4:
+        drilling = True
+    else:
+        drilling = False
+    return drilling
 
 # === Plotting settings ===
 plot_spacing = 20                               # plot bore profile/closure rate every X timesteps
@@ -57,3 +76,4 @@ plot_pressure_profile_over_time = False
 plot_mim_bore_diameter_over_time = True
 plot_bore_status_over_time = True
 plot_temperature_density_profile = False
+

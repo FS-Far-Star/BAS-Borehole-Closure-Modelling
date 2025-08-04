@@ -6,6 +6,7 @@ import matplotlib.colors as mcolors
 import numpy as np
 
 def plot_graphs():
+    "Main plotting function"
     # --- Load data
     depth           = pd.read_csv("data/depth.csv")["depth"].values
     bore_diameter   = pd.read_csv("data/bore_diameter.csv").values
@@ -199,3 +200,6 @@ def plot_graphs():
     # --- Show all plots
     plt.show()
     return None
+
+if __name__ == "__main__":
+    plot_graphs()

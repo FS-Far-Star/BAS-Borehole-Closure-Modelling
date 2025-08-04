@@ -1,15 +1,8 @@
+# Main function file
 from global_settings import *
 import numpy as np
 import scipy.integrate
 import warnings
-
-def drill_diameter(drill_type):
-    if drill_type == 'shallow':
-        return 100  # shallow bore diameter in mm
-    elif drill_type == 'deep':
-        return 120  # deep bore diameter in mm
-    else:
-        raise ValueError("Unknown drill type: {}".format(drill_type))
 
 def TSS(h, acc, melt, eta, rho, rhoi, Ts, QG):
     """
@@ -63,13 +56,15 @@ def TSS(h, acc, melt, eta, rho, rhoi, Ts, QG):
     return Tss0
 
 def delta_d_bore(D0, ke, T, p, dt):
-    """Calculates change in borehole diameter in time t (days) for range of depths, z (m) given
+    """
+        Calculates change in borehole diameter in time t (days) for range of depths, z (m) given
         initialdiameter, D0 (mm)
         enhancement coefficient, ke
         ice temperatures at z, T (C)
         overburden pressure at depth at z, p (Pa)
         shrinkage time, t (seconds)
-        """
+
+    """
     delta = D0 * 0  # initialize output array
     t = dt / (24 * 3600)  # convert seconds to days
     for i in range(len(D0)):
@@ -94,7 +89,7 @@ def delta_d_bore(D0, ke, T, p, dt):
 
 def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_density, g):
     """
-    Calculate hydrostatic fluid pressure profile in a borehole.
+    Calculate hydrostatic fluid pressure profile in a borehole. Also accounts for fluid volume and height.
     
     Parameters:
         h (np.ndarray): 1D array of vertical depth grid points [m], increasing positively downward
@@ -168,7 +163,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
             V_full += dv
 
         # Total fluid volume including partial at bottom
-        print('Refill qty',V_partial + V_full + V_top_partial - fluid_volume)
+        # print('Refill qty',V_partial + V_full + V_top_partial - fluid_volume)
         new_fluid_volume = V_partial + V_full + V_top_partial
         fluid_height = refill_level # set fluid height to refill level
 
@@ -264,7 +259,7 @@ def density(h, rhoi, rhos, Lrho):
     return rhos + (rhoi - rhos) * (1 - np.exp(-h / Lrho))
 
 def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
-    # This function has not
+    # This function has not been extensively tested and may not work as expected.
     """
     Compute the volume of fluid between fluid_height and bore_depth,
     including accurate treatment of top and bottom partial cells.
@@ -311,11 +306,3 @@ def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
         volume += V_bottom
 
     return volume
-
-def check_status(time):
-    # Placeholder for drilling strategy
-    if time < max_time/4:
-        drilling, drill_type = True, 'shallow'
-    else:
-        drilling, drill_type = False, 'shallow'
-    return [drilling, drill_type]
