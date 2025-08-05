@@ -58,16 +58,15 @@ def plot_graphs():
         masked_diameters = np.where(bore_diameter > 0, bore_diameter, np.nan)
         min_nonzero_diameter = np.nanmin(masked_diameters, axis=0)
         ax.plot(t, min_nonzero_diameter)
-        ax.set_ylabel('Borehole Minimum Diameter [mm]')
         ax.set_xlabel('Time [s]')
-        ax.set_title("Borehole Diameter Over Time")
+        ax.set_title("Borehole Minimum Diameter Over Time")
         ax.grid(True)
         fig.tight_layout()
 
     # --- Plot closure rate
     if plot_borehole_closure_rate_over_time:
         fig, ax = plt.subplots()
-        ax.set_xlabel('Diameter Change [mm]')
+        ax.set_xlabel('ΔDiameter [mm] per time step')
         ax.set_ylabel('Depth [m]')
         ax.invert_yaxis()
 
@@ -142,7 +141,7 @@ def plot_graphs():
             color = colormap(norm(i))
             ax.plot(p_t[:last_index+1, i]/1e6, depth[:last_index+1], '-', color=color, alpha=0.8, label=None)
             ax.plot(p_fluid[:last_index+1, i]/1e6, depth[:last_index+1], '--', color=color, alpha=0.5, label=None)
-        ax.plot(p_ice/1e6, depth, '--', label='p_ice', color='black')
+        ax.plot(p_ice[:int(bore_depth.iloc[-1]//dh)]/1e6, depth[:int(bore_depth.iloc[-1]//dh)], '--', label='p_ice', color='black')
         ax.set_title("Pressure Profiles Over Time")
         ax.set_xlabel('Pressure [MPa]')
         ax.set_ylabel('Depth [m]')
@@ -155,7 +154,7 @@ def plot_graphs():
     # --- Merged plot: 3 key plots side by side with shared colorbar
     if merged_plot:
         fig, axs = plt.subplots(1, 3, figsize=(18, 6), sharey=True, constrained_layout=True)
-        fig.suptitle("Borehole Evolution Over Time (Shared Color Scale)", fontsize=14)
+        fig.suptitle("Borehole Evolution Over Time", fontsize=14)
 
         # 1. Borehole Profile
         axs[0].set_title("Borehole Profile")
@@ -173,7 +172,7 @@ def plot_graphs():
 
         # 2. Closure Rate
         axs[1].set_title("Closure Rate")
-        axs[1].set_xlabel("ΔDiameter [mm]")
+        axs[1].set_xlabel("ΔDiameter [mm] per time step")
         for i in range(0, delta_bore.shape[1], plot_spacing):
             last_index = int(bore_depth.iloc[i] // dh) - 1
             color = colormap(norm(i))
@@ -188,7 +187,7 @@ def plot_graphs():
             color = colormap(norm(i))
             axs[2].plot(p_t[:last_index+1, i]/1e6, depth[:last_index+1], '-', color=color, alpha=0.8)
             axs[2].plot(p_fluid[:last_index+1, i]/1e6, depth[:last_index+1], '--', color=color, alpha=0.4)
-        axs[2].plot(p_ice/1e6, depth, '--', color='black', label='p_ice')
+        axs[2].plot(p_ice[:int(bore_depth.iloc[-1]//dh)]/1e6, depth[:int(bore_depth.iloc[-1]//dh)], '--', color='black', label='p_ice')
         axs[2].legend()
 
         # Shared colorbar

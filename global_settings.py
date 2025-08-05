@@ -24,7 +24,7 @@ dh = 1                              # depth step in meters
 
 # Load existing data?
 loading = True                     # Set to True if loading existing data
-current_bore_diameter = np.ones(int(H//dh))*100                                 # example: 100 mm bore diameter all along
+current_bore_diameter = np.ones(int(H//dh))*143                                 # example: 100 mm bore diameter all along
 # current_bore_diameter = pd.read_csv("data/bore_diameter.csv").values[:,-1]    # load from csv, dh step size must match, must be 1D
 current_bore_depth = 0                                                          # enter current bore depth. DOES NOT need to match dh
 current_fluid_height = 0                                                        # enter current fluid height, fluid_volume will be calculated
@@ -44,8 +44,8 @@ fluid_density = 793                # density of drilling fluid (kg/m³)
 refill_limit = 90                  # The fluid depth at which the crew will refill
 refill_level = 80                  # The fluid depth the crew will refill to
 leak_threshold = 40                # The fluid depth fluid will be lost to ice porosity 
-drill_type = 'shallow'             # Specify drill type: 'shallow' or 'deep'
-drilling_speed = 0.0002            # meters per second. IGNORE if using the spreadsheet
+drill_type = 'deep'             # Specify drill type: 'shallow' or 'deep'
+drilling_speed = 0.0001            # meters per second. IGNORE if using the spreadsheet
 
 # wrapper for drill specifications
 def drill_diameter(drill_type):

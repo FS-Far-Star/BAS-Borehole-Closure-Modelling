@@ -16,8 +16,13 @@ def run_calculation():
 
     if loading == False:
         # --- initialize arrays ---
-        fluid_height   = np.zeros(len(t))                       # height of fluid in borehole over time
+        fluid_height   = np.ones(len(t)) * current_fluid_height # height of fluid in borehole over time
         fluid_volume   = np.zeros(len(t))                       # fluid volume over time
+        if current_bore_depth > 0: 
+            index = int(current_bore_depth//dh)
+            bore_diameter[:index,0] = current_bore_diameter[:index]
+        if current_fluid_height != current_bore_depth:
+            fluid_volume[:] = calc_volume(current_bore_depth,bore_diameter[:,0],current_fluid_height,dh,h)
     elif loading == True:
         # --- Load data, skip first 2 rows ---
         df = pd.read_excel(filename, sheet_name=sheet_name, skiprows=2)
