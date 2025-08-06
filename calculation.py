@@ -52,17 +52,14 @@ def run_calculation():
         print('Timestep:', i)
         # update bore status with drilling status
         bore_diameter[:, i] = bore_diameter[:, i-1]             # copy previous bore diameter
+        last_depth      = int(bore_depth[i-1] // dh)
         if loading == True:
             if i < len(working_status) and working_status[i] == 'Drilling':
                 drilling = True
             else:
                 drilling = False
-        elif loading == False:
-            drilling = True     # unless loading data, assume drilling is always True
-
-        last_depth      = int(bore_depth[i-1] // dh)
-
-        if loading == False:  
+                bore_depth[i] = bore_depth[i-1]            # keep the same depth if not drilling
+        elif loading == False:  
             drilling = check_status(t[i],max_time)
             if drilling == True:
                 bore_depth[i]   = bore_depth[i-1] + drilling_speed * dt
@@ -70,11 +67,6 @@ def run_calculation():
                     bore_depth[i] = H                       # max depth reached
             else:
                 bore_depth[i]   = bore_depth[i-1]
-        elif loading == True:
-            if drilling == True:
-                pass
-            elif drilling == False:
-                bore_depth[i] = bore_depth[i-1]            # keep the same depth if not drilling
 
         print(f"bore depth {bore_depth[i]:.2f}m")
         print('')
