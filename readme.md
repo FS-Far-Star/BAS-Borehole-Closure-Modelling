@@ -2,8 +2,6 @@
 
 This tool simulates borehole closure over time due to pressure and temperature in glacial ice, with drilling progression and fluid refill mechanics. It is based on time-stepped modeling and incorporates empirical drill performance, ice physics, and fluid pressure balance.
 
-
-
 ## Project Structure
 ```
 BAS-Borehole-Closure-Modelling/
@@ -35,6 +33,7 @@ Unless you are attempting to develop the code further, calculation.py, plotting.
         - Modify simulation parameters like time and depth step sizes
         - Modify plot settings to decide which plots you want in output
     - Execute ```run.py```
+    - To pause refill (lack of drilling fluid in the field), edit ```refill_limit```
 
 2. Run bore closure simulation
     - In ```global_settings.py```
@@ -52,12 +51,18 @@ Unless you are attempting to develop the code further, calculation.py, plotting.
         - Set ```loading = False```
         - Modify ice settings to match drill site 
         - Modify simulation parameters including ```max_time```, ```dt```, ```dh```
-        - Set ```current bore diameter``` to ```np.zeros(int(H//dh))```
+        - Set ```current bore diameter``` to ```np.zeros(int(H//dh)+1)```
         - Set ```current_bore_depth``` and ```current_fluid_height``` to 0
         - Set function output of ```check_status(time)``` to ```drilling``` and specify duration of drilling within the function
         - Modify plot settings to decide which plots you want in output
     - Execute ```run.py```
+    
 4. Plot the data of the last simulation
     - In ```run.py```, comment out ```run_calculation()```, and execute ```run.py```
 
 The default unit of time in this simulation is seconds. It's recommended to use ```dt``` of at least 1 day (86400 seconds). The default unit of length is meters, except for diameters where millimeters are used. ```h``` is postive downward (i.e. depth from surface). 
+
+Caution: 
+- Fluid compressibility induced density change is not yet included. Fluid heat mass and drilling heat generation are not considered. Steady state may take a year or more to reach. 
+- Steady state ice temperature calculation in ```functions.py``` may need to be altered based on location -> consult glaciologist
+- Only one extreme of Lliboutry shape function is used, this lead to a few degrees error in steady state temperature, consult glaciologist if this is of concern. 

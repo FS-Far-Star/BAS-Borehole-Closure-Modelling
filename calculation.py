@@ -9,7 +9,8 @@ def run_calculation():
 
     # Initialize 
     t = np.arange(0 , max_time + dt , dt)                       # time 
-    h = np.arange(0 , H + dh , dh)                              # depth 
+    h = np.arange(0 , H + dh , dh)                              # depth
+    z = np.arange(-h[-1],h[-1]+dh,dh) 
     bore_diameter  = np.zeros((len(h), len(t)))                 # bore diameter as a function of depth and time
     delta_bore  = np.zeros((len(h), len(t)))                    # bore diameter change every time step
     bore_depth = np.ones(len(t)) * current_bore_depth           # borehole depth over time
@@ -42,27 +43,33 @@ def run_calculation():
     p_t        = np.zeros((len(h), len(t)))                     # total pressure
 
     # Ice properties
-    rho  = density(h, rhoi, rhos, Lrho)
-    eta  = shape_function(h, p_exp, H, rhoi, rho)
-    p_ice = ice_pressure(h, rho, g)                             # hydrostatic pressure profile of ice is constant over time
+    rho  = density(z, rhoi, rhos, Lrho)
+    eta  = shape_function(z, p_exp, H, rhoi, rho)
     temp  = TSS(h, acc, melt, eta, rho, rhoi, Ts, QG)           # ignoring drilling fluid contribution and transient, ice temperature is constant over time
+    
+    # fig,ax = plt.subplots()
+    # plt.plot(np.flip(temp[int(len(temp)//2):]),h)
+    # ax.invert_yaxis()
+    # plt.ylabel('depth')
+    # plt.show()
+
+    temp = np.flip(temp[int(len(temp)//2):])
+    rho = np.flip(rho[int(len(rho)//2):])
+    p_ice = ice_pressure(h, rho, g)                             # hydrostatic pressure profile of ice is constant over time
 
     # Iterating
     for i in range(1, len(t)):
         print('Timestep:', i)
         # update bore status with drilling status
         bore_diameter[:, i] = bore_diameter[:, i-1]             # copy previous bore diameter
+        last_depth      = int(bore_depth[i-1] // dh)
         if loading == True:
             if i < len(working_status) and working_status[i] == 'Drilling':
                 drilling = True
             else:
                 drilling = False
-        elif loading == False:
-            drilling = True     # unless loading data, assume drilling is always True
-
-        last_depth      = int(bore_depth[i-1] // dh)
-
-        if loading == False:  
+                bore_depth[i] = bore_depth[i-1]            # keep the same depth if not drilling
+        elif loading == False:  
             drilling = check_status(t[i],max_time)
             if drilling == True:
                 bore_depth[i]   = bore_depth[i-1] + drilling_speed * dt
@@ -70,11 +77,6 @@ def run_calculation():
                     bore_depth[i] = H                       # max depth reached
             else:
                 bore_depth[i]   = bore_depth[i-1]
-        elif loading == True:
-            if drilling == True:
-                pass
-            elif drilling == False:
-                bore_depth[i] = bore_depth[i-1]            # keep the same depth if not drilling
 
         print(f"bore depth {bore_depth[i]:.2f}m")
         print('')
@@ -86,7 +88,7 @@ def run_calculation():
             bore_diameter[last_depth:h_index, i] = drill_diameter(drill_type)
 
         # update pressure distribution
-        p_fluid[:, i], fluid_volume[i], fluid_height[i] = fluid_pressure(h, fluid_volume[i-1], bore_depth[i], bore_diameter[:, i], drilling, fluid_density, g)
+        p_fluid[:, i], fluid_volume[i], fluid_height[i] = fluid_pressure(h, fluid_volume[i-1], bore_depth[i], bore_diameter[:, i], drilling, fluid_density, g, refill_limit[i])
         p_t[:, i] = p_ice - p_fluid[:, i]                # Sign notation: positive pressure will close the borehole
 
         # apply borehole closure

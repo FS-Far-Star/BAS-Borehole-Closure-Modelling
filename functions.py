@@ -28,31 +28,33 @@ def TSS(h, acc, melt, eta, rho, rhoi, Ts, QG):
     """
     numiter = 100
     Tss0 = np.zeros_like(h)
+    z = np.arange(-h[-1],h[-1]+dh,dh)
+    Tss0 = np.zeros_like(z)
 
-    for i in range(numiter):
+    for _ in range(numiter):
         kc = 2 * (9.828 * np.exp(-0.0057 * (273.15 + Tss0))) * rho / rhoi / (3 - rho / rhoi)
-        Cp = (152.5 + 7.122 * (273.15 + Tss0)) / 31557600  # convert to per second
+        Cp = (152.5 + 7.122 * (273.15 + Tss0)) / 31557600  # Convert to per second
 
-        kd = kc / (rho * Cp)  # thermal diffusivity [m²/yr]
+        # For z < 0, set fixed values
+        kc[z < 0] = (9.828 * np.exp(-0.0057 * 273.15))
+        Cp[z < 0] = (152.5 + 7.122 * 273.15) / 31557600
 
-        w = -(acc - melt) * eta - melt  # vertical advection velocity [m/yr]
+        kd = kc / (rho * Cp)  # Diffusivity (m²/yr)
 
-        # I1 = ∫ (w / kd) dh from surface to h
-        I1 = scipy.integrate.cumulative_trapezoid(w / kd, h, initial=0)
+        w = -(acc - melt) * eta - melt
+
+        I1 = scipy.integrate.cumulative_trapezoid(w / kd, z, initial=0)
         u = -QG / kc * np.exp(I1)
 
-        # I2 = ∫ u dh from h to surface (since h increases downward)
-        I2 = scipy.integrate.cumulative_trapezoid(u, h, initial=0)
-
-        # T(h) = Ts + ∫ u dh from h to surface
-        Tss = Ts + I2
+        I2 = scipy.integrate.cumulative_trapezoid(np.flip(u), np.flip(z), initial=0)
+        Tss = Ts + np.flip(I2)
 
         if np.sum(np.abs(Tss0 - Tss)) < 1e-6:
             return Tss
         else:
             Tss0 = Tss
 
-    warnings.warn("TSS did not converge after {} iterations".format(numiter), UserWarning)
+    warnings.warn("TDepthSS did not converge after {} iterations".format(numiter), UserWarning)
     return Tss0
 
 def delta_d_bore(D0, ke, T, p, dt):
@@ -87,7 +89,7 @@ def delta_d_bore(D0, ke, T, p, dt):
 
     return delta #output is in mm
 
-def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_density, g):
+def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_density, g, current_refill_limit):
     """
     Calculate hydrostatic fluid pressure profile in a borehole. Also accounts for fluid volume and height.
     
@@ -146,7 +148,7 @@ def fluid_pressure(h, fluid_volume, bore_depth, bore_diameter, drilling, fluid_d
     fluid_height = h[fluid_top_index] - dz_fill
 
     # Refill condition: fluid dropped too deep during drilling
-    if fluid_height > refill_limit and drilling:
+    if fluid_height > current_refill_limit and drilling:
         refill_index = np.searchsorted(h, refill_level, side='left')  # h[refill_index] >= 80
 
         # Top partial cell (from 80 m to next grid point)
@@ -217,7 +219,7 @@ def ice_pressure(h, rho, g):
     p = scipy.integrate.cumulative_trapezoid(rho * g, h, initial=0)
     return p
 
-def shape_function(h, p_exp, H, rhoi, rho):
+def shape_function(z, p_exp, H, rhoi, rho):
     """
     Computes the Lliboutry shape function η(h) over depth h,
     assuming h = 0 at surface and h = H at bed.
@@ -232,17 +234,13 @@ def shape_function(h, p_exp, H, rhoi, rho):
     Returns:
         eta   : shape function values at each depth
     """
-    s = 1 - h / H  # normalized vertical coordinate, 1 at surface, 0 at bed
-
-    eta = 1 - (p_exp + 2) / (p_exp + 1) * (1 - s) + s**(p_exp + 2) / (p_exp + 1)
-    eta *= (rhoi / rho)
-
-    # Zero out below bed if needed (e.g., if h exceeds H due to padding)
-    eta = np.where(h > H, 0, eta)
+    eta = 1 - (p_exp + 2)/(p_exp + 1) * (1 - z/H) + ((1 - z/H)**(p_exp + 2)) / (p_exp + 1)
+    eta = eta * rhoi / rho
+    eta[z <= 0] = 0
 
     return eta
 
-def density(h, rhoi, rhos, Lrho):
+def density(z, rhoi, rhos, Lrho):
     """
     Returns vertical density profile using an exponential fit.
 
@@ -256,7 +254,8 @@ def density(h, rhoi, rhos, Lrho):
     Returns:
         rho   : array-like, density profile [kg/m³]
     """
-    return rhos + (rhoi - rhos) * (1 - np.exp(-h / Lrho))
+    return rhoi + (rhos - rhoi) * np.exp(-(H - z) / Lrho)
+
 
 def calc_volume(bore_depth, bore_diameter, fluid_height, dh,h):
     # This function has not been extensively tested and may not work as expected.
